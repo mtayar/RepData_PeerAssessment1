@@ -1,25 +1,107 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Reproducible Research - Peer Assessment 1"
+output: html_document
 ---
-
-
 ## Loading and preprocessing the data
 
+Download and unzip the dataset with the provided link
+```{r}
+url <-"https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
 
 
-## What is mean total number of steps taken per day?
+download.file(url, destfile = "data.zip")
+unzip(zipfile = "data.zip", exdir=".")
+data <- read.csv("activity.csv")
+data$date<-as.Date(data$date,format="%Y-%m-%d")
+file.remove("data.zip")
+file.remove("activity.csv")
 
+```
+##What is mean total number of steps taken per day?
 
+1-Calculate daily total steps:
+```{r message=FALSE}
+library(dplyr)
+daily_total_steps <- data %>%
+  group_by(date) %>%
+  summarize(daily_total_steps = sum(steps, na.rm=TRUE))
+```
+2-Plot a histogram
+```{r}
+hist(daily_total_steps$daily_total_steps, 
+     main="Daily Steps Count", 
+     xlab="steps", 
+     col="blue",
+     breaks = 10
+)
 
-## What is the average daily activity pattern?
+```
 
+3-Calculate mean and median steps
+```{r}
+mean(daily_total_steps$daily_total_steps, na.rm=TRUE)
+```
+```{r}
+median(daily_total_steps$daily_total_steps, na.rm=TRUE)
+```
+What is the average daily activity pattern?
+1-Time series plot
+```{r}
+mean_steps_perinterval <- data %>%
+  group_by(interval) %>%
+ summarize(mean_steps_perinterval = mean(steps, na.rm=TRUE))
+library(ggplot2)
+ggplot(mean_steps_perinterval, aes(x = interval, y = mean_steps_perinterval))+ geom_line()+ xlab("Interval")+ ylab("Mean number of steps ")
+```
+2-Maximum average number of steps and corresponding interval
+```{r}
+indx_max<-which.max(mean_steps_perinterval$mean_steps_perinterval)
+mean_steps_perinterval[indx_max,]
+```
+##Imputing missing values
+```{r 1-count missing values, echo=TRUE}
+sum(is.na(data))
+```
+3-Dataset with the missing data filled in with the average number of steps
+```{r}
 
+datafill<-data
+for(i in 1:ncol(datafill)){
+  datafill[is.na(datafill[,i]), i] <- mean(datafill[,i], na.rm = TRUE)
+}
+```
+4-Plot histogram
+```{r}
+imputed_total_steps <- datafill %>%
+  group_by(date) %>%
+  summarize(total_steps = sum(steps, na.rm=TRUE))
+hist(imputed_total_steps$total_steps, 
+     main="Daily Steps Count", 
+     xlab="steps", 
+     col="blue",
+     breaks = 10
+)
+```
+Mean and median are equal and higher then the values for the orginal dataset with missing values
+```{r}
+mean(imputed_total_steps$total_steps, na.rm=TRUE)
+```
+```{r}
+median(imputed_total_steps$total_steps, na.rm=TRUE)
+```
+##Are there differences in activity patterns between weekdays and weekends?
 
-## Imputing missing values
-
-
-
-## Are there differences in activity patterns between weekdays and weekends?
+1-Add a weekday-weekend column
+```{r message=FALSE}
+library(lubridate)
+weekday<- c(1:5)
+datafill$weekend<-ifelse((wday(datafill$date) %in% weekday), "Weekdays", "Weekend")
+```
+2-Panel plot containing a time series plot of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis)
+```{r message=FALSE}
+mean_steps_week <- datafill %>%
+  group_by(weekend,interval) %>%
+ summarize(mean_steps = mean(steps, na.rm=TRUE))
+library(ggplot2)
+ggplot(data=mean_steps_week, aes(x = interval, y = mean_steps,colour=weekend)) + geom_line(aes(colour=weekend))+ xlab("Interval")+ ylab("Number of steps ")+facet_wrap(~weekend)+theme(strip.background = element_rect(fill="lightblue"))
+```
